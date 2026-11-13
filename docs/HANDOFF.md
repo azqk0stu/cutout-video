@@ -2,6 +2,27 @@
 
 更新日: 2026-11-13（日本時間）
 
+## 最新の中断地点（2026-11-13）
+
+ユーザーから「動画できた」と報告あり。ユーザーのColabと単体HTML編集画面を使い、動画生成まで到達した。生成動画自体はこの開発環境で検査していない。解析対象が冒頭180秒か全編か、BGMの有無、画質・字幕品質は未確認。今日はここで終了し、追加の開発・公開は進めない。
+
+### 次回ユーザーが再開する手順
+
+1. PCに保存したcampus-voice-editor.htmlを開く。
+2. 「作業全体を保存」で得たcampus-voice-session.jsonと元MP3を読み込む。作業JSONがない場合はanalysis.jsonから再開できるが、字幕修正や選択範囲は保存されていない可能性がある。
+3. できた動画の字幕・音量・範囲を確認し、修正または2本目の作成へ進む。全編解析はTEST_SECONDS=0で別途実行する（実施済みかは次回確認）。
+4. 動画生成が必要なときだけGitHubのノートブックをColabで開く。ランタイムが切れていたら依存インストールと元MP3のアップロードをやり直す。既存のclip-edit.jsonで動画だけ再生成するなら文字起こしの再実行は不要。元音声アップロード後、編集JSON/BGM読み込みセルと動画生成セルへ進む。
+
+手元に残すもの: 元MP3、campus-voice-editor.html、analysis.json、campus-voice-session.json、clip-edit.json、生成MP4、使ったBGM。これらのユーザーデータをこちらで保存・取得できたわけではない。ブラウザを閉じる前に編集画面で「作業全体を保存」を押すよう案内する。Colabの一時領域は消えるため唯一の保存先にしない。
+
+### 今回のエラーと対処
+
+- Colab Python 3.13.18、faster-whisper 1.2.1、av 19.0.2で `TypeError: open() got an unexpected keyword argument 'metadata_errors'` が発生。依存条件はav>=11で上限なしだった。
+- `%pip install -q --force-reinstall "av==16.0.1"` とセッション再起動を案内。ユーザーは再起動後、最終的に動画生成成功を報告。再起動後のavバージョンの再取得はしていない。
+- 再発防止としてリポジトリのインストールセルにもav==16.0.1を指定した。新しい組み合わせをこの開発環境で文字起こし実行したわけではない。
+- 編集JSONセルの `KeyError: 'start'` は、start/endを持たないJSONを選んだことによる。analysis.jsonや作業全体のJSONではなく、編集画面の「Colab用の編集JSONを保存」で得たclip-edit.jsonを選ぶ。
+- 元音声は解析JSONのaudio_nameと同名が必要。画面には `JJ_Campus_Voice_2026-10-04 (1).mp3` と表示されていた。PCで見つからない場合はColabで `files.download(str(audio_path))` により取得できる。自動で付いた番号には注意する。
+
 ## 今回の回収と保存
 
 新環境 /workspace には旧ソースが存在しなかった。GitHub azqk0stu/cutout-video は git ls-remote と clone でブランチのない空リポジトリと確認した。
@@ -36,7 +57,7 @@
 - python -m unittest discover -s tests -p '*_test.py': Pythonテスト4件。ノートブック構文、単体HTMLの依存埋め込み、実Chromiumで字幕・話者修正→作業保存→再読み込み→編集JSON出力、合成音声でBGMあり／なしのMP4生成。
 - ローカルHTTP配信、app.js/model.js/style.cssの応答、JS構文確認。
 
-実ラジオ音声の解析、実際のGoogle Colab実行、Cloudflare本番配信は未検証。ローカル成功を本番検証済みと扱わない。
+回収時点では実ラジオ音声・実Colab・Cloudflare本番は未検証だった。その後ユーザーがColabで動画生成成功を報告した（上記参照）。Cloudflare本番配信は引き続き未検証。
 
 ## 開発と再開手順
 
@@ -61,6 +82,6 @@ webを変更したら `python scripts/prepare_notebook.py` でノートブック
 
 ## データ
 
-実音源はJJ_Campus_Voice_2026-10-04.mp3。旧添付は32MiB超で実行環境へ取得できず、未解析。ユーザーがColabで元MP3を選択する必要がある。
+実音源はJJ_Campus_Voice_2026-10-04.mp3。旧添付は32MiB超で開発環境へ取得できなかった。ユーザー側Colabではその後動画生成まで到達した。ユーザーがColabで元MP3を選択する必要がある。
 
 音声・動画・解析結果・字幕データ・認証情報をGitHubへ含めない。ColabはDriveへ自動保存しない。編集画面のファイルはブラウザ内で処理する。保存JSONと元音声は別管理。Colab上のデータはランタイム削除、手元のファイルは個別削除する。
