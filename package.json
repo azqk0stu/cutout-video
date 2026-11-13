@@ -1,0 +1,1 @@
+{"name":"campus-voice-clips","private":true,"type":"module","scripts":{"dev":"python -m http.server 5173 --directory web","test":"node --test tests/*.test.js","deploy":"npx wrangler pages deploy web"}}

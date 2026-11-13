@@ -1,0 +1,10 @@
+node_modules/
+.wrangler/
+__pycache__/
+*.mp3
+*.wav
+*.mp4
+analysis.json
+clip-edit.json
+campus-voice-session.json
+transcript-checkpoint.json
