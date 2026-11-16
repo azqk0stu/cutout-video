@@ -13,4 +13,12 @@ html = html.replace('<script type="module" src="app.js"></script>', '<script typ
 cell = {'cell_type':'code','metadata':{'tags':['portable-editor']},'execution_count':None,'outputs':[], 'source': ('# Cloudflare公開前でも使える、単体の編集画面です。\nfrom pathlib import Path\nfrom google.colab import files\nPath("campus-voice-editor.html").write_text('+repr(html)+', encoding="utf-8")\nfiles.download("campus-voice-editor.html")\n').splitlines(True)}
 nb['cells'] = [c for c in nb['cells'] if 'portable-editor' not in c.get('metadata',{}).get('tags',[])]
 nb['cells'].insert(2,cell)
+# Keep the ranking implementation executable without repository downloads in Colab.
+algorithm = (root / 'scripts/candidates.py').read_text()
+for candidate_cell in nb['cells']:
+    if 'candidate-ranking' in candidate_cell.get('metadata', {}).get('tags', []):
+        source = ''.join(candidate_cell['source'])
+        marker = '# 候補だけ再計算する場合は、このセルから実行します。'
+        source = source[source.index(marker):]
+        candidate_cell['source'] = (algorithm + '\n' + source).splitlines(True)
 path.write_text(json.dumps(nb, ensure_ascii=False, indent=2)+'\n')

@@ -1,0 +1,29 @@
+import importlib.util
+from pathlib import Path
+import unittest
+
+spec = importlib.util.spec_from_file_location('candidates', Path(__file__).resolve().parents[1]/'scripts/candidates.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+class CandidateTests(unittest.TestCase):
+    def test_duration_diversity_and_topic_reason(self):
+        segments = [dict(start=i*5,end=i*5+4,text='なるほど！' if i%3==0 else '次のお知らせです') for i in range(120)]
+        embeddings = [[1,0] if i//12%2==0 else [0,1] for i in range(120)]
+        candidates = module.suggest_candidates(segments, embeddings)
+        self.assertEqual(len(candidates), 10)
+        self.assertTrue(any(c['topic_start'] for c in candidates))
+        for i,c in enumerate(candidates):
+            self.assertTrue(30<=c['end']-c['start']<=60)
+            for d in candidates[:i]:
+                overlap=max(0,min(c['end'],d['end'])-max(c['start'],d['start']))
+                self.assertLessEqual(overlap/min(c['end']-c['start'],d['end']-d['start']),.25)
+
+    def test_short_silent_and_no_embeddings(self):
+        self.assertEqual(module.suggest_candidates([]), [])
+        self.assertEqual(module.suggest_candidates([dict(start=0,end=10,text='短い')]), [])
+        result=module.suggest_candidates([dict(start=i*5,end=i*5+4,text='普通の会話') for i in range(20)])
+        self.assertTrue(result)
+        self.assertFalse(any(c['topic_start'] for c in result))
+        with self.assertRaises(ValueError):
+            module.suggest_candidates([dict(start=0,end=40,text='x')], [])

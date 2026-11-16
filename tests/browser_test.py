@@ -31,6 +31,13 @@ class BrowserTest(unittest.TestCase):
             page.goto('http://127.0.0.1:5189/')
             project={'version':1,'audio_name':'radio.wav','segments':[{'start':0,'end':10,'text':'最初の字幕'},{'start':10,'end':20,'text':'二番目の字幕'}],'candidates':[{'start':0,'end':20,'title':'テスト候補'}]}
             page.locator('#project').set_input_files({'name':'analysis.json','mimeType':'application/json','buffer':json.dumps(project).encode()})
+            page.locator('#search').fill('存在しない言葉')
+            self.assertEqual(page.locator('.candidate').count(),0)
+            page.locator('#search').fill('最初の字幕')
+            self.assertEqual(page.locator('.candidate').count(),1)
+            page.locator('#sort').select_option('time')
+            page.get_by_role('button',name='この範囲を編集').click()
+            self.assertIn('20.0秒',page.locator('#duration').inner_text())
             page.locator('#segments textarea').first.fill('修正した字幕')
             page.locator('#segments input').first.fill('話者A')
             page.locator('#title').fill('保存するタイトル')
