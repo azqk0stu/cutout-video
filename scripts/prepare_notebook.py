@@ -10,7 +10,16 @@ model = (root / 'web/model.js').read_text().replace('export function', 'function
 app = (root / 'web/app.js').read_text().replace("import {validateProject,exportEdit} from './model.js';", '')
 html = html.replace('<link rel="stylesheet" href="style.css">', '<style>'+css+'</style>')
 html = html.replace('<script type="module" src="app.js"></script>', '<script type="module">'+model+'\n'+app+'</script>')
-cell = {'cell_type':'code','metadata':{'tags':['portable-editor']},'execution_count':None,'outputs':[], 'source': ('# Cloudflare公開前でも使える、単体の編集画面です。\nfrom pathlib import Path\nfrom google.colab import files\nPath("campus-voice-editor.html").write_text('+repr(html)+', encoding="utf-8")\nfiles.download("campus-voice-editor.html")\n').splitlines(True)}
+portable_source = '# 解析後に、解析結果入りの編集画面を出力する準備です。\nfrom pathlib import Path\nfrom google.colab import files\nimport json\nEDITOR_HTML = '+repr(html)+'\n'
+portable_source += r'''def save_editor(project):
+    payload = json.dumps(project, ensure_ascii=False).replace("<", "\\u003c")
+    embedded = '<script type="application/json" id="embeddedProject">'+payload+'</script>'
+    result = EDITOR_HTML.replace('<script type="module">', embedded+'<script type="module">', 1)
+    Path("campus-voice-editor.html").write_text(result, encoding="utf-8")
+    files.download("campus-voice-editor.html")
+print("準備完了。候補作成後に、解析結果入りのHTMLがダウンロードされます。")
+'''
+cell = {'cell_type':'code','metadata':{'tags':['portable-editor']},'execution_count':None,'outputs':[], 'source': portable_source.splitlines(True)}
 nb['cells'] = [c for c in nb['cells'] if 'portable-editor' not in c.get('metadata',{}).get('tags',[])]
 nb['cells'].insert(2,cell)
 # Keep the ranking implementation executable without repository downloads in Colab.
@@ -27,4 +36,10 @@ for speaker_cell in nb['cells']:
         marker = '# 話者を自動で推定します。'
         source = source[source.index(marker):]
         speaker_cell['source'] = ((root / 'scripts/speakers.py').read_text() + '\n' + source).splitlines(True)
+for edit_cell in nb['cells']:
+    if 'edit-input' in edit_cell.get('metadata', {}).get('tags', []):
+        source = ''.join(edit_cell['source'])
+        marker = '# 編集データを読み込む（'
+        source = source[source.index(marker):]
+        edit_cell['source'] = ((root / 'scripts/edit_input.py').read_text() + '\n' + source).splitlines(True)
 path.write_text(json.dumps(nb, ensure_ascii=False, indent=2)+'\n')

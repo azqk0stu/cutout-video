@@ -63,6 +63,7 @@ $('download').onclick=()=>{try{download(selection(),'clip-edit.json');status('Co
 $('saveSession').onclick=()=>{try{download({kind:'campus-voice-session',version:1,project,selection:selection()},'campus-voice-session.json');dirty=false;$('saveState').textContent='作業を保存しました';status('作業全体を保存しました。次回はこのJSONと元音声を読み込むと再開できます。')}catch(e){status(e.message)}};
 $('clear').onclick=()=>{
   if(dirty&&!confirm('未保存の編集を破棄して消去しますか？'))return;
+  $('copyText').value='';$('copyFallback').hidden=true;
   project=null;dirty=false;stopAt=null;$('editor').hidden=true;$('audio').pause();$('audio').removeAttribute('src');$('audio').load();
   if(url)URL.revokeObjectURL(url);url=null;$('project').value='';$('audioFile').value='';$('candidates').replaceChildren();$('segments').replaceChildren();
   status('読み込んだデータを消去しました。端末に保存済みのファイルは別途削除してください。');
@@ -116,4 +117,25 @@ function renderSpeakers(){
     button.onclick=()=>{const next=input.value.trim();if(!next){status('名前を入力してください');return}for(const s of project.segments){if(s.speaker===name)s.speaker=next}changed();renderSegments();renderSpeakers()};
     label.append(input,button);root.append(label);
   }
+}
+
+$('copyEdit').onclick=async()=>{
+  try{
+    const text=JSON.stringify(selection());
+    $('copyText').value=text;
+    try{
+      await navigator.clipboard.writeText(text);
+      $('copyFallback').hidden=true;
+      status('コピーしました。Colabの編集データ読み込みセルを実行し、入力欄へ貼り付けてEnterを押してください。');
+    }catch{
+      $('copyFallback').hidden=false;$('copyText').focus();$('copyText').select();
+      status('下の選択済みテキストをCtrl+C（Macは⌘C）でコピーし、Colabへ貼り付けてください。');
+    }
+  }catch(e){status(e.message)}
+};
+
+const embeddedProject=document.getElementById('embeddedProject');
+if(embeddedProject){
+  try{loadProject(JSON.parse(embeddedProject.textContent));status('解析結果は読み込み済みです。試聴用の元音声を選択してください。')}
+  catch(e){status(`解析結果を読み込めませんでした: ${e.message}`)}
 }
