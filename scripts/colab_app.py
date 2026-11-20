@@ -10,10 +10,10 @@ from scripts.render_clip import render_clip
 from scripts.edit_input import parse_edit
 
 
-def create_app(upload, download, analyze=analyze_audio, render=render_clip):
+def create_app(upload, download, analyze=analyze_audio, render=render_clip, editor_template=None, external_editor=False):
     import ipywidgets as w
     from IPython.display import display, Audio, Video, clear_output
-    state=dict(audio=None,bgm=None,project=None,video=None,busy=False)
+    state=dict(audio=None,bgm=None,project=None,video=None,busy=False,external_ready=False)
     buttons=[]
     def button(label,action,style=''):
         b=w.Button(description=label,button_style=style,layout=w.Layout(width='auto'))
@@ -64,7 +64,7 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
         if state['project'] and not reanalyze.value:
             raise ValueError('先に作業を保存し、「再解析を許可」にチェックしてから別の元音声を選んでください')
         paths=upload_one()
-        state.update(audio=paths,project=None,video=None)
+        state.update(audio=paths,project=None,video=None,external_ready=False)
         candidate.options=[];editor.children=[];speaker_names.children=[];overview.value=''
         with preview:clear_output()
         with movie:clear_output()
@@ -87,7 +87,7 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
         if state['project'] and not reanalyze.value:
             raise ValueError('すでに解析済みです。再解析すると編集を破棄します。「再解析を許可」にチェックしてください。')
         project=analyze(state['audio'],test_seconds=sample.value,speakers=people.value,use_speakers=diarize.value,use_topics=topics.value,count=count.value,report=print)
-        state['project']=project;state['video']=None;reanalyze.value=False
+        state['project']=project;state['video']=None;state['external_ready']=False;reanalyze.value=False
         refresh_info();refresh_candidates();refresh_names()
         if not project['candidates']:
             start.value=project['segments'][0]['start'];end.value=min(project['segments'][-1]['end'],start.value+60)
@@ -138,6 +138,8 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
         if indices:select_candidate(dict(new=indices[0]))
         else:overview.value='一致する候補がありません。検索を変えるか、範囲を手動指定してください。'
     def current_edit():
+        if external_editor and not state['external_ready']:
+            raise ValueError('先に編集サイトからコピーした内容を貼り付け、「編集データを読み込む」を押してください')
         if not state['project'] or not state['audio']:raise ValueError('先に解析または保存した作業の読み込みをしてください')
         project=state['project']
         edit=dict(version=1,audio_name=project['audio_name'],start=start.value,end=end.value,title=title.value,format=audio_format.value,bgm_volume=volume.value,segments=[s for s in project['segments'] if s['end']>start.value and s['start']<end.value])
@@ -180,10 +182,38 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
         project=data['project'];saved=data['selection']
         parse_edit(json.dumps(saved),state['audio'].name)
         if project.get('audio_name')!=state['audio'].name or not isinstance(project.get('segments'),list) or not isinstance(project.get('candidates'),list):raise ValueError('作業JSONか元音声が一致しません')
-        state['project']=project;state['video']=None
+        state['project']=project;state['video']=None;state['external_ready']=True
         refresh_candidates();refresh_names()
         start.value=saved['start'];end.value=saved['end'];title.value=saved.get('title','');volume.value=saved.get('bgm_volume',.12);audio_format.value=saved['format']
         refresh_info();refresh_segments();print('作業を再開しました。解析のやり直しは不要です。')
+    paste=w.Textarea(description='編集データ',placeholder='編集サイトの「Colabへコピー」でコピーした内容をここに貼り付けます',layout=w.Layout(width='95%',height='120px'))
+    imported=w.HTML('編集データは未読み込みです。')
+    def export_editor():
+        if not state['project']:raise ValueError('先に解析または作業の読み込みをしてください')
+        if not editor_template:raise ValueError('編集画面のテンプレートがありません。最新版を開いてください')
+        payload=json.dumps(state['project'],ensure_ascii=False).replace('<',chr(92)+'u003c')
+        embedded='<script type="application/json" id="embeddedProject">'+payload+'</script>'
+        page=editor_template.replace('<script type="module">',embedded+'<script type="module">',1)
+        path=Path(tempfile.mkdtemp(prefix='campus-editor-'))/'campus-voice-editor.html'
+        path.write_text(page,encoding='utf-8');download(str(path))
+        print('HTMLをダブルクリックで開き、元音声を選択して編集してください。解析結果は読み込み済みです。')
+    paste.observe(lambda change:state.update(external_ready=False),names='value')
+    def import_edit():
+        state['external_ready']=False
+        if not state['project'] or not state['audio']:raise ValueError('先に解析または作業の読み込みをしてください')
+        edit=parse_edit(paste.value,state['audio'].name)
+        # An edit can replace only known subtitle intervals. Keep all other text.
+        originals={(segment['start'],segment['end']):segment for segment in state['project']['segments']}
+        if any((segment['start'],segment['end']) not in originals for segment in edit['segments']):
+            raise ValueError('別の解析結果の字幕が含まれています。同じ編集画面からコピーしてください')
+        for segment in edit['segments']:
+            originals[(segment['start'],segment['end'])].update(text=segment['text'],speaker=segment.get('speaker',''))
+        start.value=edit['start'];end.value=edit['end'];title.value=edit.get('title','');volume.value=edit.get('bgm_volume',.12);audio_format.value=edit['format']
+        state['video']=None
+        refresh_segments();refresh_names()
+        state['external_ready']=True
+        imported.value=f'<b>読み込み済み：{start.value:.1f}〜{end.value:.1f}秒</b> ／ '+html.escape(title.value)
+        print('編集内容を読み込みました。下の「動画を作る」を押してください。')
     candidate.observe(select_candidate,names='value')
     query.observe(refresh_candidates,names='value');sort.observe(refresh_candidates,names='value')
     start.observe(refresh_segments,names='value');end.observe(refresh_segments,names='value')
@@ -192,6 +222,9 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
         w.VBox([w.HTML('<h3>2. 候補を確認して編集</h3><p>候補を選び、前後を試聴。字幕・話者名・範囲を修正します。変更はこの画面内で保持されます。</p>'),query,sort,candidate,overview,w.HBox([start,end]),duration,title,button('前後を試聴',listen),preview,w.HTML('<b>話者名をまとめて設定</b>'),speaker_names,editor,button('作業を保存（次回再開用）',save_session)]),
         w.VBox([w.HTML('<h3>3. 動画を作って保存</h3><p>現在の選択範囲と字幕で作ります。2本目は「候補と編集」へ戻って選び直してください。</p>'),audio_format,volume,use_bgm,button('動画を作る',make_video,'success'),movie,button('完成MP4を保存',save_video),button('作業を保存（次回再開用）',save_session)])
     ]
+    if external_editor:
+        sections[1]=w.VBox([w.HTML('<h3>2. 前の編集画面で候補を確認・編集</h3><p>①編集画面HTMLを保存 → ②PCで開いて試聴・字幕編集 → ③「Colabへコピー」→ 下へ貼り付けて読み込み。編集画面で「作業全体を保存」も使ってください。</p>'),button('編集画面HTMLを保存',export_editor,'primary'),paste,button('貼り付けた編集データを読み込む',import_edit,'primary'),imported,button('作業を保存（次回再開用）',save_session)])
+        sections[2].children=tuple(control for control in sections[2].children if control not in (audio_format,volume))
     app=w.VBox([w.HTML('<h2>Campus Voice</h2><p>①素材と解析 → ②候補と編集 → ③動画と保存</p><p>終了前に「作業を保存」。Colabの接続が切れると未保存の作業は消えることがあります。</p>'),w.HTML('<b>進行状況・メッセージ</b>'),log,*[control for section in sections for control in section.children]])
     return app
 
@@ -207,7 +240,7 @@ def launch_colab_app():
     print(f'表示ライブラリ: ipywidgets {w.__version__}', flush=True)
     output.enable_custom_widget_manager()
     display(HTML('<p><b>操作画面を表示しています。</b>「元音声を選ぶ」が出ない場合は出力欄を展開してください。それでも出ない場合は、このメッセージと②の出力を送ってください。</p>'))
-    app=create_app(files.upload,files.download)
+    app=create_app(files.upload,files.download,editor_template=globals().get('PORTABLE_EDITOR_HTML'),external_editor=True)
     status=w.HTML('最初に「表示確認」を押してください。')
     check=w.Button(description='表示確認',button_style='info')
     def confirm(_):

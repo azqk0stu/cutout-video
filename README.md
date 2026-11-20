@@ -2,6 +2,20 @@
 
 個人用ラジオ切り抜きツールの初版。静的編集画面をCloudflare Pagesへ、音声処理をGoogle Colabへ分離します。常時稼働するバックエンド・APIキー・データベースは不要です。
 
+## 現在のおすすめ：Colabで解析・生成、前の画面で編集
+
+[かんたん版Colab](https://colab.research.google.com/github/azqk0stu/cutout-video/blob/main/notebooks/campus_voice_easy.ipynb)を起動後、次の流れで使います。
+
+1. Colabで元音声を選び、「解析する」。
+2. 「編集画面HTMLを保存」を押し、取得したcampus-voice-editor.htmlをPCのブラウザで開く。解析データは読み込み済み。
+3. 編集画面で元音声を選択し、候補を試聴。要約・理由を確認して字幕・話者名・範囲・動画サイズ・音量を編集。
+4. 編集画面の「Colabへコピー」を押し、Colabの「編集データ」欄へ貼り付けて「貼り付けた編集データを読み込む」。
+5. 「動画を作る」→「完成MP4を保存」。2本目は編集画面で別の範囲を選び、コピー・貼り付けから繰り返す。
+
+ユーザー希望により、Colab内の候補一覧・字幕編集・サイズ設定は既定画面から外しました。Cloudflare本番は引き続き未公開です。以前の静的HTML編集画面を使う構成で、有料APIや常設Colab APIは不要です。終了前は編集画面の「作業全体を保存」とColabのMP4保存を行ってください。
+
+以下のColab内編集についての記録は以前の構成です。最新の既定は上の手順を優先してください。
+
 ## おすすめ：Colab内のかんたん操作画面
 
 [かんたん版をColabで開く](https://colab.research.google.com/github/azqk0stu/cutout-video/blob/main/notebooks/campus_voice_easy.ipynb)

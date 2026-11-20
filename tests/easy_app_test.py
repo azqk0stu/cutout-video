@@ -85,3 +85,31 @@ class EasyAppTests(unittest.TestCase):
             result=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','json',str(output)],check=True,capture_output=True,text=True)
             self.assertAlmostEqual(float(json.loads(result.stdout)['format']['duration']),1,delta=.15)
             self.assertIn('司会', (output.parent/'captions.ass').read_text())
+
+    def test_external_editor_export_import_and_render_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            audio=Path(directory)/'radio.wav'
+            subprocess.run(['ffmpeg','-v','error','-f','lavfi','-i','sine=duration=5',str(audio)],check=True)
+            saves=[];renders=[]
+            def analyze(path,**options):
+                return dict(version=1,audio_name=path.name,segments=[dict(start=0,end=4,text='字幕 </script>',speaker='話者1')],candidates=[dict(start=0,end=4,title='候補')])
+            def render(path,edit,bgm):
+                renders.append(edit);output=Path(directory)/'clip.mp4';output.write_bytes(b'video');return output
+            template='<script type="module">/*editor*/</script>'
+            app=create_app(lambda:{'radio.wav':audio.read_bytes()},lambda name:saves.append(Path(name).read_text()),analyze=analyze,render=render,editor_template=template,external_editor=True)
+            def find(description):return next(w for w in descendants(app) if getattr(w,'description','')==description)
+            find('元音声を選ぶ').click();find('解析する').click()
+            self.assertFalse(any(getattr(w,'description','')=='候補を検索' for w in descendants(app)))
+            find('編集画面HTMLを保存').click()
+            self.assertIn('embeddedProject',saves[-1])
+            self.assertNotIn('字幕 </script>',saves[-1])
+            find('動画を作る').click();self.assertFalse(renders)
+            edit=dict(version=1,audio_name='radio.wav',start=1,end=3,format='square',bgm_volume=.2,segments=[dict(start=0,end=4,text='修正字幕',speaker='司会')])
+            find('編集データ').value=json.dumps(edit)
+            find('貼り付けた編集データを読み込む').click()
+            find('動画を作る').click()
+            self.assertEqual(renders[-1]['segments'][0]['text'],'修正字幕')
+            self.assertEqual(renders[-1]['format'],'square')
+            find('編集データ').value='invalid'
+            find('貼り付けた編集データを読み込む').click()
+            find('動画を作る').click();self.assertEqual(len(renders),1)
