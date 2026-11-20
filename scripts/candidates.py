@@ -3,6 +3,40 @@ import math
 import re
 
 
+def summarize_excerpt(segments, max_chars=220):
+    """Extract representative sentences; never invent claims or paraphrase ASR.
+
+    Character bigrams work without Japanese tokenizers. Keep selected sentences
+    in chronological order; the UI explicitly labels this as an extractive summary.
+    """
+    sentences = []
+    for segment in segments:
+        for sentence in re.split(r'(?<=[。！？!?])', segment['text']):
+            sentence = sentence.strip()
+            if sentence and sentence not in sentences:
+                sentences.append(sentence)
+    if not sentences:
+        return ''
+    def grams(text):
+        text = re.sub(r'\s+', '', text)
+        return set(text[i:i+2] for i in range(len(text)-1))
+    features = [grams(t) for t in sentences]
+    weights = {}
+    for feature in features:
+        for gram in feature:
+            weights[gram] = weights.get(gram, 0) + 1
+    ranking = sorted(range(len(sentences)), key=lambda i: sum(weights[g] for g in features[i])/max(1,len(features[i])) + min(len(sentences[i]),80)/160, reverse=True)
+    selected = []
+    for i in ranking:
+        if any(len(features[i]&features[j])/max(1,len(features[i]|features[j]))>.8 for j in selected):
+            continue
+        selected.append(i)
+        if len(selected)==2:
+            break
+    text = ' … '.join(sentences[i] for i in sorted(selected))
+    return text if len(text)<=max_chars else text[:max_chars-1]+'…'
+
+
 def suggest_candidates(segments, embeddings=None, limit=10):
     """Rank 30–60s windows with topic, tempo and transcript reaction cues.
 
@@ -51,7 +85,8 @@ def suggest_candidates(segments, embeddings=None, limit=10):
             windows.append(dict(start=first['start'], end=segments[j]['end'],
                                 title=first['text'][:40], reason=' / '.join(reasons),
                                 score=round(score,4), density=round(density,3),
-                                reactions=reactions, topic_start=bool(topic and embeddings is not None)))
+                                reactions=reactions, topic_start=bool(topic and embeddings is not None),
+                                tempo=round(tempo,3), clean_end=clean_end, opening=topic))
     chosen = []
     ranked = sorted(windows, key=lambda c: c['score'], reverse=True)
     def compatible(candidate):
@@ -67,10 +102,29 @@ def suggest_candidates(segments, embeddings=None, limit=10):
             pool = [c for c in ranked if min(bands-1,int(((c['start']+c['end'])/2-first)/span*bands)) == band]
             candidate = next((c for c in pool if compatible(c)), None)
             if candidate is not None:
+                candidate['selection_basis'] = f'解析範囲の第{band+1}/{bands}時間帯から、得点上位の重複しない候補を確保'
                 chosen.append(candidate)
     for candidate in ranked:
         if len(chosen) >= limit:
             break
         if compatible(candidate):
+            candidate['selection_basis'] = '時間帯別の候補を確保した後、得点順で重複しない候補を追加'
             chosen.append(candidate)
+    for candidate in chosen:
+        selected = [s for s in segments if s['end']>candidate['start'] and s['start']<candidate['end']]
+        candidate['summary'] = summarize_excerpt(selected)
+        candidate['summary_method'] = 'extractive-v1'
+        candidate['reasons'] = [
+            f"発話密度 {candidate['density']:.0%}：無音が少ない区間を加点",
+            f"発話テンポ指標 {candidate['tempo']:.0%}：字幕区間数／秒から計算（話者交代数ではありません）",
+            candidate['selection_basis'],
+        ]
+        if candidate['topic_start']:
+            candidate['reasons'].append('話題の開始位置と推定されたため加点（先頭または隣接字幕の意味の変化）')
+        elif candidate['opening']:
+            candidate['reasons'].append('解析範囲の先頭から始まるため加点（意味による判定ではありません）')
+        if candidate['reactions']:
+            candidate['reasons'].append(f"驚き・反応の文字表現 {candidate['reactions']}件を加点（音声の笑い検出ではありません）")
+        if candidate['clean_end']:
+            candidate['reasons'].append('無音・話題境界・解析末尾のいずれかで終わるため加点')
     return sorted(chosen, key=lambda c:c['score'], reverse=True)

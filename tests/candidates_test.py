@@ -33,3 +33,15 @@ class CandidateTests(unittest.TestCase):
         result=module.suggest_candidates(segments,limit=10)
         self.assertTrue(any((c['start']+c['end'])/2>2400 for c in result))
         self.assertTrue(any(1200<c['start']<1800 for c in result))
+
+    def test_summary_is_from_candidate_only_and_reasons_explain_selection(self):
+        segments=[dict(start=i*5,end=i*5+4,text=f'企画{i}について相談します。') for i in range(30)]
+        for candidate in module.suggest_candidates(segments):
+            self.assertTrue(candidate['summary'])
+            self.assertLessEqual(len(candidate['summary']),220)
+            source=''.join(s['text'] for s in segments if s['end']>candidate['start'] and s['start']<candidate['end'])
+            for excerpt in candidate['summary'].split(' … '):
+                self.assertIn(excerpt,source)
+            self.assertIn(candidate['selection_basis'],candidate['reasons'])
+        self.assertEqual(module.summarize_excerpt([]),'')
+        self.assertEqual(module.summarize_excerpt([{'text':'同じ文。'},{'text':'同じ文。'}]),'同じ文。')

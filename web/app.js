@@ -77,7 +77,7 @@ function renderCandidates(){
   const root=$('candidates');root.replaceChildren();
   if(!project)return;
   const query=$('search').value.trim().toLowerCase();
-  const candidates=project.candidates.filter(c=>`${c.title||''} ${c.reason||''} ${project.segments.filter(s=>s.end>c.start&&s.start<c.end).map(s=>s.text).join(' ')}`.toLowerCase().includes(query));
+  const candidates=project.candidates.filter(c=>`${c.title||''} ${c.summary||''} ${c.reason||''} ${project.segments.filter(s=>s.end>c.start&&s.start<c.end).map(s=>s.text).join(' ')}`.toLowerCase().includes(query));
   candidates.sort($('sort').value==='time' ? (a,b)=>a.start-b.start : (a,b)=>(b.score||0)-(a.score||0));
   $('candidateCount').textContent=`${candidates.length}件の候補`;
   if(!candidates.length){const empty=document.createElement('p');empty.textContent='候補がありません。検索を変えるか、開始・終了を手動で指定してください。';root.append(empty)}
@@ -85,11 +85,19 @@ function renderCandidates(){
     const card=document.createElement('article');card.className='candidate';
     const heading=document.createElement('h3');heading.textContent=`${i+1}. ${c.title||'候補'}`;
     const detail=document.createElement('small');detail.textContent=`${clock(c.start)}〜${clock(c.end)} · ${(c.end-c.start).toFixed(1)}秒`;
-    const reason=document.createElement('p');reason.textContent=c.reason||'前後を聴いて確認してください';
+    const summary=document.createElement('p');summary.className='candidate-summary';
+    summary.textContent=c.summary ? `内容の要約${c.summary_method==='extractive-v1'?'（字幕から重要文を抜粋）':''}：${c.summary}` : '内容の要約：この解析データにはありません。新版Colabで候補を再計算すると追加されます。';
+    const reason=document.createElement('details');
+    const label=document.createElement('summary');label.textContent='この候補が選ばれた理由';reason.append(label);
+    const list=document.createElement('ul');
+    for(const text of (Array.isArray(c.reasons)&&c.reasons.length?c.reasons:[c.reason||'理由の情報がありません。'])){
+      const item=document.createElement('li');item.textContent=text;list.append(item);
+    }
+    reason.append(list);
     const select=()=>{range(c.start,c.end);$('title').value=c.title||'';changed()};
     const edit=document.createElement('button');edit.textContent='この範囲を編集';edit.onclick=()=>{select();$('title').focus()};
     const preview=document.createElement('button');preview.className='secondary';preview.textContent='前後を試聴';preview.onclick=()=>{select();listen(true)};
-    card.append(heading,detail,reason,edit,preview);root.append(card);
+    card.append(heading,detail,summary,reason,edit,preview);root.append(card);
   }
 }
 function clock(value){return `${Math.floor(value/60)}:${Math.floor(value%60).toString().padStart(2,'0')}`}

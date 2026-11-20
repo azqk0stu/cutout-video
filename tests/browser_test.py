@@ -29,9 +29,12 @@ class BrowserTest(unittest.TestCase):
             page=browser.new_page(accept_downloads=True)
             errors=[];page.on('pageerror',lambda error: errors.append(str(error)))
             page.goto('http://127.0.0.1:5189/')
-            project={'version':1,'audio_name':'radio.wav','segments':[{'start':0,'end':10,'text':'最初の字幕','speaker':'話者1'},{'start':10,'end':20,'text':'二番目の字幕','speaker':'話者1'}],'candidates':[{'start':0,'end':20,'title':'テスト候補'}]}
+            project={'version':1,'audio_name':'radio.wav','segments':[{'start':0,'end':10,'text':'最初の字幕','speaker':'話者1'},{'start':10,'end':20,'text':'二番目の字幕','speaker':'話者1'}],'candidates':[{'start':0,'end':20,'title':'テスト候補','summary':'学園祭の企画を相談します。','summary_method':'extractive-v1','reasons':['時間帯の偏りを避けるため選出']}]}
             page.locator('#project').set_input_files({'name':'analysis.json','mimeType':'application/json','buffer':json.dumps(project).encode()})
-            page.locator('summary').click()
+            self.assertIn('学園祭の企画',page.locator('.candidate-summary').inner_text())
+            page.get_by_text('この候補が選ばれた理由',exact=True).click()
+            self.assertIn('時間帯の偏り',page.locator('.candidate li').inner_text())
+            page.get_by_text('話者の名前をまとめて設定',exact=True).click()
             page.get_by_label('話者1の名前',exact=True).fill('司会')
             page.get_by_role('button',name='この話者をまとめて変更').click()
             self.assertEqual(page.locator('#segments input').nth(1).input_value(),'司会')
