@@ -47,3 +47,4 @@ path.write_text(json.dumps(nb, ensure_ascii=False, indent=2)+'\n')
 # Keep the beginner-facing notebook synchronized with shared modules.
 import runpy
 runpy.run_path(str(root / 'scripts/build_easy_notebook.py'))
+runpy.run_path(str(root / 'scripts/build_live_notebook.py'))

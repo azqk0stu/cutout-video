@@ -2,6 +2,22 @@
 
 個人用ラジオ切り抜きツールの初版。静的編集画面をCloudflare Pagesへ、音声処理をGoogle Colabへ分離します。常時稼働するバックエンド・APIキー・データベースは不要です。
 
+## HTML接続版（2026-11-20）
+
+[HTML接続版をColabで開く](https://colab.research.google.com/github/azqk0stu/cutout-video/blob/main/notebooks/campus_voice_live.ipynb)
+
+①準備→セッション再起動→②起動で元音声を選択します。その後はColabの出力欄に表示される、従来と同じHTML編集画面だけで解析・候補選択・試聴・字幕/話者編集・動画生成・ダウンロードを操作できます。ipywidgets、外部サーバー、公開トンネル、コピー＆貼り付けは不要です。元音声はColabから短い試聴音声を取得するため再選択不要です。任意BGMも起動時に一緒に選択できます（2本の場合、元音声を番号で指定）。
+
+**無料Colabでは、外部Web UIからノートブックを迂回して処理する形に制限があります。** 当初の外部HTMLへの一時接続案はこの制約を確認する前の案内でした。この版はノートブック自身のHTML出力と標準register_callback/invokeFunctionを使い、別タブで開いたHTMLやCloudflareサイトからアクセスできるAPIを作りません。[Colab公式FAQ](https://research.google.com/colaboratory/faq.html)を参照してください。Cloudflareは未公開のままです。
+
+切断後は作業全体を保存して①②で再起動、元音声を選び直し、保存した作業JSONをHTMLで読み込んでください。処理途中のジョブは引き継げません。完了動画はリンクからPCへ保存します。作業JSON・音声・生成物はGitへ含めません。モデル推論や動画エンコードはColab側で実行し、HTMLは操作と表示だけを行います。
+
+ローカルでは解析スタブを使ったHTML→標準コールバック呼び出し→候補表示→字幕修正→動画データ受信、切断表示、Pythonジョブ状態・入力検証・分割ダウンロードを検証しました。実際のColab HTML出力環境での通し操作とモデル推論は未検証です。外部サイト接続として動作確認済みと扱わないでください。従来の手動版・かんたん版は残しています。
+
+再生成は `python scripts/build_live_notebook.py`。`prepare_notebook.py`でも各版をまとめて更新します。
+
+以下は旧構成の記録です。最新版の方式は本節を参照してください。
+
 ## 現在のおすすめ：Colabで解析・生成、前の画面で編集
 
 [かんたん版Colab](https://colab.research.google.com/github/azqk0stu/cutout-video/blob/main/notebooks/campus_voice_easy.ipynb)を起動後、次の流れで使います。
