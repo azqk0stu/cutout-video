@@ -59,6 +59,16 @@ class EasyAppTests(unittest.TestCase):
             self.assertEqual(find('字幕').value,'修正後の字幕')
             self.assertTrue(all(not w.disabled for w in descendants(app) if hasattr(w,'click')))
 
+    def test_controls_are_directly_visible_without_tab_container(self):
+        import ipywidgets as widgets
+        with patch.object(widgets,'Tab',side_effect=AssertionError('Tab must not be used')):
+            app=create_app(lambda:{},lambda name:None)
+        descriptions=[getattr(control,'description','') for control in app.children]
+        self.assertIn('元音声を選ぶ',descriptions)
+        self.assertIn('解析する',descriptions)
+        self.assertIn('動画を作る',descriptions)
+        self.assertIn('完成MP4を保存',descriptions)
+
     def test_invalid_action_does_not_leave_buttons_locked(self):
         app=create_app(lambda:{},lambda name:None)
         b=next(w for w in descendants(app) if getattr(w,'description','')=='動画を作る')

@@ -88,7 +88,7 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
             raise ValueError('すでに解析済みです。再解析すると編集を破棄します。「再解析を許可」にチェックしてください。')
         project=analyze(state['audio'],test_seconds=sample.value,speakers=people.value,use_speakers=diarize.value,use_topics=topics.value,count=count.value,report=print)
         state['project']=project;state['video']=None;reanalyze.value=False
-        refresh_info();refresh_candidates();refresh_names();tabs.selected_index=1
+        refresh_info();refresh_candidates();refresh_names()
         if not project['candidates']:
             start.value=project['segments'][0]['start'];end.value=min(project['segments'][-1]['end'],start.value+60)
             overview.value='30〜60秒の候補がないため、範囲を手動指定してください。';refresh_segments()
@@ -183,17 +183,16 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
         state['project']=project;state['video']=None
         refresh_candidates();refresh_names()
         start.value=saved['start'];end.value=saved['end'];title.value=saved.get('title','');volume.value=saved.get('bgm_volume',.12);audio_format.value=saved['format']
-        refresh_info();refresh_segments();tabs.selected_index=1;print('作業を再開しました。解析のやり直しは不要です。')
+        refresh_info();refresh_segments();print('作業を再開しました。解析のやり直しは不要です。')
     candidate.observe(select_candidate,names='value')
     query.observe(refresh_candidates,names='value');sort.observe(refresh_candidates,names='value')
     start.observe(refresh_segments,names='value');end.observe(refresh_segments,names='value')
-    tabs=w.Tab(children=[
+    sections=[
         w.VBox([w.HTML('<h3>1. 音声を選んで解析</h3><p>元のラジオ音声を選び「解析する」を押します。全編は時間がかかります。</p>'),button('元音声を選ぶ',choose_audio),info,w.HBox([button('BGMを選ぶ（任意）',choose_bgm),button('BGMなしにする',remove_bgm)]),sample,people,diarize,topics,count,reanalyze,button('解析する',run_analysis,'primary'),button('保存した作業を読み込む',restore_session)]),
         w.VBox([w.HTML('<h3>2. 候補を確認して編集</h3><p>候補を選び、前後を試聴。字幕・話者名・範囲を修正します。変更はこの画面内で保持されます。</p>'),query,sort,candidate,overview,w.HBox([start,end]),duration,title,button('前後を試聴',listen),preview,w.HTML('<b>話者名をまとめて設定</b>'),speaker_names,editor,button('作業を保存（次回再開用）',save_session)]),
         w.VBox([w.HTML('<h3>3. 動画を作って保存</h3><p>現在の選択範囲と字幕で作ります。2本目は「候補と編集」へ戻って選び直してください。</p>'),audio_format,volume,use_bgm,button('動画を作る',make_video,'success'),movie,button('完成MP4を保存',save_video),button('作業を保存（次回再開用）',save_session)])
-    ])
-    for i,label in enumerate(['素材と解析','候補と編集','動画と保存']):tabs.set_title(i,label)
-    app=w.VBox([w.HTML('<h2>Campus Voice</h2><p>①素材と解析 → ②候補と編集 → ③動画と保存</p><p>終了前に「作業を保存」。Colabの接続が切れると未保存の作業は消えることがあります。</p>'),tabs,w.HTML('<b>進行状況・メッセージ</b>'),log])
+    ]
+    app=w.VBox([w.HTML('<h2>Campus Voice</h2><p>①素材と解析 → ②候補と編集 → ③動画と保存</p><p>終了前に「作業を保存」。Colabの接続が切れると未保存の作業は消えることがあります。</p>'),w.HTML('<b>進行状況・メッセージ</b>'),log,*[control for section in sections for control in section.children]])
     return app
 
 
@@ -207,7 +206,7 @@ def launch_colab_app():
         raise RuntimeError('古い表示ライブラリがメモリに残っています。「ランタイム → セッションを再起動」の後、②だけ実行してください。')
     print(f'表示ライブラリ: ipywidgets {w.__version__}', flush=True)
     output.enable_custom_widget_manager()
-    display(HTML('<p><b>操作画面を表示しています。</b>下にタブが出ない場合は出力欄を展開し、ノートブックを再読み込みしてください。それでも出ない場合は、このメッセージと②の出力を送ってください。</p>'))
+    display(HTML('<p><b>操作画面を表示しています。</b>「元音声を選ぶ」が出ない場合は出力欄を展開してください。それでも出ない場合は、このメッセージと②の出力を送ってください。</p>'))
     app=create_app(files.upload,files.download)
     status=w.HTML('最初に「表示確認」を押してください。')
     check=w.Button(description='表示確認',button_style='info')
@@ -215,5 +214,5 @@ def launch_colab_app():
         status.value='✓ 操作できます。下の「元音声を選ぶ」から始めてください。'
     check.on_click(confirm)
     display(w.VBox([w.HBox([check,status]),app]))
-    print('② 起動処理が完了しました。上の「表示確認」を押してください。', flush=True)
+    print('② 起動処理が完了しました。上の「表示確認」を押し、「元音声を選ぶ」から進めてください。', flush=True)
     return app

@@ -6,7 +6,7 @@
 
 [かんたん版をColabで開く](https://colab.research.google.com/github/azqk0stu/cutout-video/blob/main/notebooks/campus_voice_easy.ipynb)
 
-最初に「① 最初の準備」を実行し、「ランタイム → セッションを再起動」の後で「② 操作画面を開く」を実行します。その後は3つのタブのボタンで操作します。
+最初に「① 最初の準備」を実行し、「ランタイム → セッションを再起動」の後で「② 操作画面を開く」を実行します。その後は上から順に並ぶ3つの手順のボタンで操作します。
 
 1. **素材と解析**：元音声を選び、出演人数を指定して「解析する」。BGMは任意。全編解析が既定です。
 2. **候補と編集**：候補の要約・理由を確認して前後を試聴。開始終了秒・字幕・話者名を修正。
@@ -110,3 +110,21 @@ CLIを使う場合はCloudflare認証後 `npm run deploy`（Wranglerを取得し
 Colabでgradio/diffusers等が要求するhuggingface-hub>=1.32,<3と、旧指定のsentence-transformers 5.1.2が導入する旧Hubとの競合が報告されました。かんたん版はsentence-transformers 6.3.0、transformers 5.23.0、Hub>=1.32,<3へ変更。公開PyPIの依存メタデータとの整合性を確認したもので、実Colabでの全依存の解決・モデル推論は未検証です。
 
 表示用ipywidgetsは7.8.5に固定。①完了後のセッション再起動を必須として案内します。セットアップ失敗時は停止し、成功したように表示しません。②には起動メッセージ、表示ライブラリの版、表示確認ボタン、タブが見えない場合の案内を追加しました。画面の未表示と依存競合が同じ原因かはまだ確定していません。修正版をGitHubから開き直し、①→セッション再起動→②を試してください。
+
+### 表示確認だけ見えて操作できない場合
+
+ユーザーのColabで表示確認のボタンは動くが、Tabコンテナ全体が表示されない現象を確認しました。かんたん版からTabを除き、操作項目を直接VBoxの子として縦に並べました。進行状況は画面上部に表示します。ローカルではTabに依存せず素材選択・解析・動画生成のボタンが直下に存在することを確認しました。Colab実画面での修正確認は必要です。
+
+既に開いている旧画面では、次のセルで既存コントロールを直接再表示できます（再インストール不要、状態は同じものを使用）。
+
+```python
+import ipywidgets as w
+from IPython.display import display
+for item in campus_app.children:
+    if isinstance(item, w.Tab):
+        for panel in item.children:
+            for control in panel.children:
+                display(control)
+    else:
+        display(item)
+```
