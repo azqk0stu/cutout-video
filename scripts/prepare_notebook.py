@@ -43,3 +43,7 @@ for edit_cell in nb['cells']:
         source = source[source.index(marker):]
         edit_cell['source'] = ((root / 'scripts/edit_input.py').read_text() + '\n' + source).splitlines(True)
 path.write_text(json.dumps(nb, ensure_ascii=False, indent=2)+'\n')
+
+# Keep the beginner-facing notebook synchronized with shared modules.
+import runpy
+runpy.run_path(str(root / 'scripts/build_easy_notebook.py'))
