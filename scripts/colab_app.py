@@ -198,9 +198,22 @@ def create_app(upload, download, analyze=analyze_audio, render=render_clip):
 
 
 def launch_colab_app():
+    print('② 起動準備：Colabの表示機能を読み込んでいます。', flush=True)
     from google.colab import files, output
-    from IPython.display import display
+    from IPython.display import display, HTML
+    import ipywidgets as w
+    from importlib.metadata import version
+    if w.__version__ != version('ipywidgets'):
+        raise RuntimeError('古い表示ライブラリがメモリに残っています。「ランタイム → セッションを再起動」の後、②だけ実行してください。')
+    print(f'表示ライブラリ: ipywidgets {w.__version__}', flush=True)
     output.enable_custom_widget_manager()
+    display(HTML('<p><b>操作画面を表示しています。</b>下にタブが出ない場合は出力欄を展開し、ノートブックを再読み込みしてください。それでも出ない場合は、このメッセージと②の出力を送ってください。</p>'))
     app=create_app(files.upload,files.download)
-    display(app)
+    status=w.HTML('最初に「表示確認」を押してください。')
+    check=w.Button(description='表示確認',button_style='info')
+    def confirm(_):
+        status.value='✓ 操作できます。下の「元音声を選ぶ」から始めてください。'
+    check.on_click(confirm)
+    display(w.VBox([w.HBox([check,status]),app]))
+    print('② 起動処理が完了しました。上の「表示確認」を押してください。', flush=True)
     return app
