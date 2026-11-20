@@ -29,8 +29,12 @@ class BrowserTest(unittest.TestCase):
             page=browser.new_page(accept_downloads=True)
             errors=[];page.on('pageerror',lambda error: errors.append(str(error)))
             page.goto('http://127.0.0.1:5189/')
-            project={'version':1,'audio_name':'radio.wav','segments':[{'start':0,'end':10,'text':'最初の字幕'},{'start':10,'end':20,'text':'二番目の字幕'}],'candidates':[{'start':0,'end':20,'title':'テスト候補'}]}
+            project={'version':1,'audio_name':'radio.wav','segments':[{'start':0,'end':10,'text':'最初の字幕','speaker':'話者1'},{'start':10,'end':20,'text':'二番目の字幕','speaker':'話者1'}],'candidates':[{'start':0,'end':20,'title':'テスト候補'}]}
             page.locator('#project').set_input_files({'name':'analysis.json','mimeType':'application/json','buffer':json.dumps(project).encode()})
+            page.locator('summary').click()
+            page.get_by_label('話者1の名前',exact=True).fill('司会')
+            page.get_by_role('button',name='この話者をまとめて変更').click()
+            self.assertEqual(page.locator('#segments input').nth(1).input_value(),'司会')
             page.locator('#search').fill('存在しない言葉')
             self.assertEqual(page.locator('.candidate').count(),0)
             page.locator('#search').fill('最初の字幕')

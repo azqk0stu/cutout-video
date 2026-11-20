@@ -53,12 +53,24 @@ def suggest_candidates(segments, embeddings=None, limit=10):
                                 score=round(score,4), density=round(density,3),
                                 reactions=reactions, topic_start=bool(topic and embeddings is not None)))
     chosen = []
-    for candidate in sorted(windows, key=lambda c: c['score'], reverse=True):
-        # Prevent near-duplicates while allowing a short shared lead-in.
-        if any(max(0,min(candidate['end'], c['end'])-max(candidate['start'],c['start'])) /
-               min(candidate['end']-candidate['start'],c['end']-c['start']) > .25 for c in chosen):
-            continue
-        chosen.append(candidate)
+    ranked = sorted(windows, key=lambda c: c['score'], reverse=True)
+    def compatible(candidate):
+        return not any(max(0,min(candidate['end'], c['end'])-max(candidate['start'],c['start'])) /
+                       min(candidate['end']-candidate['start'],c['end']-c['start']) > .25 for c in chosen)
+    # Reserve one eligible candidate per time band before filling by quality.
+    # Use actual timestamps, including long silences, rather than subtitle count.
+    if ranked:
+        first = segments[0]['start']
+        span = max(1, segments[-1]['end']-first)
+        bands = min(5, limit)
+        for band in range(bands):
+            pool = [c for c in ranked if min(bands-1,int(((c['start']+c['end'])/2-first)/span*bands)) == band]
+            candidate = next((c for c in pool if compatible(c)), None)
+            if candidate is not None:
+                chosen.append(candidate)
+    for candidate in ranked:
         if len(chosen) >= limit:
             break
-    return chosen
+        if compatible(candidate):
+            chosen.append(candidate)
+    return sorted(chosen, key=lambda c:c['score'], reverse=True)

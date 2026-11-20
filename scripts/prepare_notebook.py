@@ -21,4 +21,10 @@ for candidate_cell in nb['cells']:
         marker = '# 候補だけ再計算する場合は、このセルから実行します。'
         source = source[source.index(marker):]
         candidate_cell['source'] = (algorithm + '\n' + source).splitlines(True)
+for speaker_cell in nb['cells']:
+    if 'speaker-diarization' in speaker_cell.get('metadata', {}).get('tags', []):
+        source = ''.join(speaker_cell['source'])
+        marker = '# 話者を自動で推定します。'
+        source = source[source.index(marker):]
+        speaker_cell['source'] = ((root / 'scripts/speakers.py').read_text() + '\n' + source).splitlines(True)
 path.write_text(json.dumps(nb, ensure_ascii=False, indent=2)+'\n')

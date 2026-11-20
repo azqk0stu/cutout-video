@@ -18,7 +18,7 @@ function renderSegments(){
 }
 function loadProject(p,selection){
   project=validateProject(p);$('editor').hidden=false;
-  renderCandidates();
+  renderCandidates();renderSpeakers();
   const c=selection||project.candidates[0]||{start:project.segments[0].start,end:Math.min(project.segments.at(-1).end,project.segments[0].start+60)};
   range(c.start,c.end);$('title').value=c.title||'';$('volume').value=c.bgm_volume??0.12;$('format').value=c.format||'vertical';
   dirty=false;$('saveState').textContent='読み込み済み';
@@ -96,3 +96,16 @@ function clock(value){return `${Math.floor(value/60)}:${Math.floor(value%60).toS
 $('search').oninput=renderCandidates;$('sort').onchange=renderCandidates;
 $('useStart').onclick=()=>{if(Number.isFinite($('audio').duration)){range(Number($('audio').currentTime.toFixed(1)),+$('end').value);changed()}else status('元音声を先に選択してください')};
 $('useEnd').onclick=()=>{if(Number.isFinite($('audio').duration)){range(+$('start').value,Number($('audio').currentTime.toFixed(1)));changed()}else status('元音声を先に選択してください')};
+
+function renderSpeakers(){
+  const root=$('speakers');root.replaceChildren();
+  const speakers=[...new Set(project.segments.map(s=>s.speaker).filter(Boolean))];
+  if(!speakers.length){root.textContent='話者は未推定です。字幕ごとの話者欄で入力できます。';return}
+  for(const name of speakers){
+    const label=document.createElement('label');label.textContent=`${name} の名前`;
+    const input=document.createElement('input');input.value=name;input.setAttribute('aria-label',`${name}の名前`);
+    const button=document.createElement('button');button.textContent='この話者をまとめて変更';button.className='secondary';
+    button.onclick=()=>{const next=input.value.trim();if(!next){status('名前を入力してください');return}for(const s of project.segments){if(s.speaker===name)s.speaker=next}changed();renderSegments();renderSpeakers()};
+    label.append(input,button);root.append(label);
+  }
+}

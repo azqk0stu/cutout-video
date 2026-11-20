@@ -27,3 +27,9 @@ class CandidateTests(unittest.TestCase):
         self.assertFalse(any(c['topic_start'] for c in result))
         with self.assertRaises(ValueError):
             module.suggest_candidates([dict(start=0,end=40,text='x')], [])
+
+    def test_later_bands_survive_strong_opening(self):
+        segments=[dict(start=i*5,end=i*5+4,text='なるほど！すごい！' if i<120 else '会話です') for i in range(600)]
+        result=module.suggest_candidates(segments,limit=10)
+        self.assertTrue(any((c['start']+c['end'])/2>2400 for c in result))
+        self.assertTrue(any(1200<c['start']<1800 for c in result))
